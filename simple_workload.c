@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 
     printf("Successfully touched all pages.\n");
 
-    sleep(300);
+    sleep(60);
 
     // Unmap the memory before exiting
     if (munmap(addr, size) == -1) {
