@@ -6,11 +6,11 @@
 #include <string.h>
 #include <errno.h>
 
-size_t page_size(const char *str) {
+size_t parse_size(const char *str) {
     double size;
     char unit;
     // 4G
-    if (sscanf(str, "%lf", &size, &unit) != 2) {
+    if (sscanf(str, "%lf%c", &size, &unit) != 2) {
         fprintf(stderr, "Use something like 4G\n");
         exit(EXIT_FAILURE);
     }
