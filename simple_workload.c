@@ -19,16 +19,14 @@ size_t parse_size(const char *str) {
 }
 
 int main(int argc, char *argv[]) {
-    // Ensure correct usage
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <size_in_GiB>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    // Parse the size argument
+    // Get size
     size_t size = parse_size(argv[1]);
 
-    // Get the system's page size
     long page_size = sysconf(_SC_PAGESIZE);
     if (page_size == -1) {
         perror("sysconf");
@@ -38,7 +36,6 @@ int main(int argc, char *argv[]) {
     printf("System page size: %ld bytes\n", page_size);
     printf("Mapping %zu GiB of memory...\n", size / (1024 * 1024 * 1024));
 
-    // Memory map anonymous memory (not backed by any file)
     void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE,
                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (addr == MAP_FAILED) {
@@ -48,13 +45,13 @@ int main(int argc, char *argv[]) {
 
     printf("Memory mapped at address: %p\n", addr);
 
+    // not use superpages in this memory area
     if (madvise(addr, size, MADV_NOHUGEPAGE) != 0) {
         perror("madvise");
-    // Depending on your requirements, you may choose to exit or continue
         exit(EXIT_FAILURE);
     }
 
-    // Calculate the number of pages to touch
+    // Number of pages to touch
     size_t num_pages = size / page_size;
     printf("Total pages to touch: %zu\n", num_pages);
 
@@ -66,6 +63,8 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Successfully touched all pages.\n");
+
+    sleep(300);
 
     // Unmap the memory before exiting
     if (munmap(addr, size) == -1) {
