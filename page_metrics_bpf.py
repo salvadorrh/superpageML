@@ -1,78 +1,78 @@
-# page_metrics_bpf.py
+# collect_page_data.py
+
 from bcc import BPF
-import pandas as pd
+import csv
 import time
 
-# BPF program
-bpf_text = """
+# Define eBPF program
+prog = """
 #include <uapi/linux/ptrace.h>
 #include <linux/mm.h>
 
-struct data_t {
+// Structure to hold page access data
+struct page_access {
+    u64 pid;
+    u64 tid;
     u64 addr;
-    u32 event_type; // 1: Access, 2: TLB Miss
+    u32 access_type; // 0: Read, 1: Write
+    u64 timestamp;
 };
-BPF_PERF_OUTPUT(events);
 
-int trace_page_access(struct pt_regs *ctx, struct mm_struct *mm, unsigned long address, unsigned int flags, unsigned int trap) {
-    struct data_t data = {};
-    data.addr = address & PAGE_MASK;
-    data.event_type = 1; // Access
-    events.perf_submit(ctx, &data, sizeof(data));
+// BPF hash map to store page access counts
+BPF_HASH(page_access_map, u64, struct page_access);
+
+// kprobe to track page accesses
+int kprobe_handle_mm_fault(struct pt_regs *ctx, struct mm_struct *mm, unsigned long address, unsigned int flags, unsigned int type) {
+    u64 pid_tid = bpf_get_current_pid_tgid();
+    
+    struct page_access pa = {};
+    pa.pid = pid_tid >> 32;
+    pa.tid = pid_tid;
+    pa.addr = address;
+    pa.access_type = (type & VM_WRITE) ? 1 : 0; // Determine write or read
+    pa.timestamp = bpf_ktime_get_ns();
+    
+    page_access_map.update(&pid_tid, &pa);
+    
     return 0;
 }
 
-int trace_tlb_miss(struct pt_regs *ctx, struct mm_struct *mm, unsigned long address, unsigned int flags, unsigned int trap) {
-    struct data_t data = {};
-    data.addr = address & PAGE_MASK;
-    data.event_type = 2; // TLB Miss
-    events.perf_submit(ctx, &data, sizeof(data));
+// kretprobe to clean up
+int kretprobe_handle_mm_fault(struct pt_regs *ctx) {
     return 0;
 }
 """
 
 # Initialize BPF
-b = BPF(text=bpf_text)
+b = BPF(text=prog)
+print("Collecting page access data... Press Ctrl-C to stop.")
 
-# Attach kprobes to relevant kernel functions
-# Note: Replace 'handle_mm_fault' and 'tlb_miss_handler' with actual function names
-# You may need to identify the correct kernel functions handling TLB misses
-b.attach_kprobe(event="handle_mm_fault", fn_name="trace_page_access")
-b.attach_kprobe(event="do_page_fault", fn_name="trace_tlb_miss")  # Example
-
-# Data storage
-page_metrics = {}
-
-# Event handler
-def handle_event(cpu, data, size):
-    event = b["events"].event(data)
-    page = event.addr
-    if page not in page_metrics:
-        page_metrics[page] = {'access_count': 0, 'tlb_misses': 0}
-    if event.event_type == 1:
-        page_metrics[page]['access_count'] += 1
-    elif event.event_type == 2:
-        page_metrics[page]['tlb_misses'] += 1
-
-# Start data collection
-b["events"].open_perf_buffer(handle_event)
-print("Starting data collection... Press Ctrl+C to stop.")
-
-try:
-    while True:
-        b.perf_buffer_poll()
-except KeyboardInterrupt:
-    print("\nData collection stopped.")
-
-# Save collected data to CSV
-data = []
-for addr, metrics in page_metrics.items():
-    data.append({
-        'Page_Address': hex(addr),
-        'Access_Count': metrics['access_count'],
-        'TLB_Miss_Count': metrics['tlb_misses']
-    })
-
-df = pd.DataFrame(data)
-df.to_csv('page_metrics.csv', index=False)
-print("Data saved to page_metrics.csv")
+# Open CSV file for logging
+with open('page_access_log.csv', 'w', newline='') as csvfile:
+    fieldnames = ['PID', 'TID', 'Page_Number', 'Address', 'Access_Type', 'Timestamp_ns']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
+    
+    try:
+        while True:
+            for key, pa in b["page_access_map"].items():
+                # Calculate page number (assuming 4 KiB pages and base address)
+                base_address = 0x7f9c8b000000  # Replace with your workload's base address
+                page_size = 4096
+                if pa.addr < base_address:
+                    continue
+                page_number = (pa.addr - base_address) // page_size
+                writer.writerow({
+                    'PID': pa.pid,
+                    'TID': pa.tid & 0xFFFFFFFF,
+                    'Page_Number': page_number,
+                    'Address': hex(pa.addr),
+                    'Access_Type': 'WRITE' if pa.access_type else 'READ',
+                    'Timestamp_ns': pa.timestamp
+                })
+                # Remove the entry after logging
+                b["page_access_map"].delete(key)
+            csvfile.flush()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Data collection stopped.")
