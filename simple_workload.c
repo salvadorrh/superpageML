@@ -48,6 +48,12 @@ int main(int argc, char *argv[]) {
 
     printf("Memory mapped at address: %p\n", addr);
 
+    if (madvise(addr, size, MADV_NOHUGEPAGE) != 0) {
+        perror("madvise");
+    // Depending on your requirements, you may choose to exit or continue
+        exit(EXIT_FAILURE);
+    }
+
     // Calculate the number of pages to touch
     size_t num_pages = size / page_size;
     printf("Total pages to touch: %zu\n", num_pages);
