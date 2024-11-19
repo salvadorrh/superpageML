@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
             volatile uint32_t *ptr = (volatile uint32_t *)current_addr;
             *ptr += 1; // Perform a simple write operation
         }
-        usleep(100000); // Sleep for 100ms between iterations
+        usleep(1000000); // Sleep for 100ms between iterations
     }
 
     printf("Completed continuous memory access.\n");
