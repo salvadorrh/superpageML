@@ -24,8 +24,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Get size
-    size_t size = parse_size(argv[1]);
+    size_t size = parse_size(argv[1]); // Num of bytes
 
     long page_size = sysconf(_SC_PAGESIZE);
     if (page_size == -1) {
@@ -45,7 +44,7 @@ int main(int argc, char *argv[]) {
 
     printf("Memory mapped at address: %p\n", addr);
 
-    // not use superpages in this memory area
+    // not use superpage
     if (madvise(addr, size, MADV_NOHUGEPAGE) != 0) {
         perror("madvise");
         exit(EXIT_FAILURE);
@@ -58,13 +57,11 @@ int main(int argc, char *argv[]) {
     // Iterate over each page and touch the first word
     for (size_t i = 0; i < num_pages; i++) {
         uintptr_t current_addr = (uintptr_t)addr + i * page_size;
-        volatile uint32_t *ptr = (volatile uint32_t *)current_addr;
-        *ptr = 0;  // Write to the first word to touch the page
+        volatile uint32_t *ptr = (volatile uint32_t *)current_addr; // Write to mem
+        *ptr = 0;  // Touch the page by writting to first word
     }
 
     printf("Successfully touched all pages.\n");
-
-    sleep(60);
 
     // Unmap the memory before exiting
     if (munmap(addr, size) == -1) {

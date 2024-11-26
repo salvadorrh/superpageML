@@ -56,16 +56,18 @@ int main(int argc, char *argv[]) {
     size_t num_pages = size / page_size;
     printf("Total pages to touch: %zu\n", num_pages);
 
-    FILE *log_file = fopen("page_access_log.csv", "w");
+    // Open a separate log file for the workload
+    FILE *log_file = fopen("workload_log.csv", "w");
     if (!log_file) {
         perror("fopen");
         munmap(addr, size);
         exit(EXIT_FAILURE);
     }
 
+    // Write CSV header
     fprintf(log_file, "Page_Number,Page_Address,Access_Time_ns,Access_Type\n");
 
-    // Initial touch
+    // Initial touch: Access each page once
     for (size_t i = 0; i < num_pages; i++) {
         uintptr_t current_addr = (uintptr_t)addr + i * page_size;
         volatile uint32_t *ptr = (volatile uint32_t *)current_addr;
@@ -74,14 +76,14 @@ int main(int argc, char *argv[]) {
         clock_gettime(CLOCK_MONOTONIC, &ts);
         uint64_t access_time = (uint64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
 
-        *ptr = 0;
+        *ptr = 0; // WRITE operation
 
         fprintf(log_file, "%zu,0x%lx,%llu,WRITE\n", i, current_addr, (unsigned long long)access_time);
     }
 
     printf("Successfully touched all pages and logged access information.\n");
 
-    // Continuous access loop
+    // Continuous memory access loop with reduced frequency
     printf("Starting continuous memory access for data collection...\n");
     for (int t = 0; t < 60; t++) { // Run for 60 seconds
         for (size_t i = 0; i < num_pages; i++) {
@@ -89,7 +91,7 @@ int main(int argc, char *argv[]) {
             volatile uint32_t *ptr = (volatile uint32_t *)current_addr;
             *ptr += 1; // Perform a simple write operation
         }
-        usleep(1000000); // Sleep for 100ms between iterations
+        usleep(200000); // Sleep for 200ms between iterations (increased from 100ms)
     }
 
     printf("Completed continuous memory access.\n");
