@@ -27,7 +27,7 @@ global_stats = {
 address_pattern = re.compile(r"address (0x[0-9a-fA-F]+)")
 
 # Read perf output file (derived from perf.data)
-with open('perf_ouput.txt', 'r') as f:
+with open('perf_output.txt', 'r') as f:
     for line in f:
         if "page-faults" in line:
             match = address_pattern.search(line)
