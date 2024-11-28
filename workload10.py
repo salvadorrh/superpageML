@@ -27,37 +27,27 @@ def main():
             base_addr = get_mmap_address(mem_map)
             print(f"Starting memory operations at base address: 0x{base_addr:x}")
             
+            # Write base address to file - fixed file handling
             with open("mmap_info.txt", "w") as info_file:
                 info_file.write(f"PID: {pid}\n")
                 info_file.write(f"Base Address: 0x{base_addr:x}\n")
                 info_file.write(f"Page Size: {PAGE_SIZE}\n")
                 info_file.write(f"Number of Pages: {NUM_PAGES}\n")
-            
-            # Force a sync to ensure file is written
-            info_file.flush()
-            os.fsync(info_file.fileno())
-            
-            # Wait a moment for perf to start capturing
-            time.sleep(1)
+                # Flush while file is still open
+                info_file.flush()
+                os.fsync(info_file.fileno())
             
             print("Beginning page access pattern...")
             
-            # Access every 10th page with more intensive operations
+            # Access every 10th page
             for i in range(0, NUM_PAGES, 10):
                 offset = i * PAGE_SIZE
                 absolute_addr = base_addr + offset
                 
-                # Write operation
+                # Write to page to create fault
                 mem_map[offset:offset + PAGE_SIZE] = b"\xFF" * PAGE_SIZE
-                
-                # Read back to force cache activity
-                data = mem_map[offset:offset + PAGE_SIZE]
-                
-                # Do some simple computation to ensure the access isn't optimized away
-                checksum = sum(data)
-                
-                print(f'Page {i}: addr=0x{absolute_addr:x}, checksum={checksum}')
-                time.sleep(0.05)  # Slightly longer delay to ensure perf captures the event
+                print(f'Accessed page {i} at address 0x{absolute_addr:x}')
+                time.sleep(0.01)
                 
         finally:
             mem_map.close()

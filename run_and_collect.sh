@@ -3,12 +3,15 @@
 # Clear any old data
 rm -f perf.data perf_output.txt mmap_info.txt
 
-# Start perf recording
-sudo perf record -e 'page-faults:u,dTLB-load-misses:u,dTLB-store-misses:u,cache-references:u,cache-misses:u' \
-     -a --call-graph dwarf python3 workload10.py
+# Record with simpler output format
+sudo perf stat -x, -o perf_output.txt -e page-faults,dTLB-load-misses,dTLB-store-misses,cache-references,cache-misses -p $(pgrep -f "python3 workload10.py") &
+PERF_PID=$!
 
-# Generate the perf script output
-sudo perf script > perf_output.txt
+# Run the workload
+python3 workload10.py
+
+# Wait for perf to finish
+wait $PERF_PID
 
 # Run the parser
 python3 parser.py
