@@ -23,20 +23,18 @@ def parse_perf_data(perf_file, mmap_info_file):
         "tlb_load_misses": 0,
         "tlb_store_misses": 0,
         "cache_misses": 0,
-        "cache_references": 0,
-        "context_switches": 0,
-        "instructions": 0,
-        "branches": 0,
-        "branch_misses": 0,
+        "cache_references": 0
     })
 
-    # Updated regex pattern to match the actual perf output format
-    # Format: "perf-exec 16187  8639.687148:          1 dTLB-store-misses:  ffffffff8100f90b"
-    event_pattern = re.compile(r':\s+(\d+)\s+([\w-]+):\s+([0-9a-fA-F]+)')
+    # Updated regex pattern to match the new format
+    # Example: "python3 16435 10966.398011:          1      page-faults:u:      7fda3ea48290"
+    event_pattern = re.compile(r':\s+(\d+)\s+([\w-]+):u:\s+([0-9a-fA-F]+)')
 
     print("Starting to parse perf output...")
     line_count = 0
     match_count = 0
+    kernel_addr_count = 0
+    user_addr_count = 0
     
     with open(perf_file, 'r') as f:
         for line in f:
@@ -47,10 +45,17 @@ def parse_perf_data(perf_file, mmap_info_file):
             match = event_pattern.search(line)
             
             if match:
-                match_count += 1
                 count = int(match.group(1))
                 event_type = match.group(2)
                 addr = int(match.group(3), 16)
+                
+                # Skip kernel addresses
+                if addr > 0xffffffff00000000:
+                    kernel_addr_count += 1
+                    continue
+                
+                user_addr_count += 1
+                match_count += 1
                 
                 if line_count <= 5:
                     print(f"Found match: addr=0x{addr:x}, count={count}, event={event_type}")
@@ -68,6 +73,8 @@ def parse_perf_data(perf_file, mmap_info_file):
     print(f"\nProcessing summary:")
     print(f"Total lines processed: {line_count}")
     print(f"Total matches found: {match_count}")
+    print(f"Kernel addresses found: {kernel_addr_count}")
+    print(f"User addresses found: {user_addr_count}")
     print(f"Number of pages with data: {len(page_stats)}")
 
     # Convert to DataFrame
