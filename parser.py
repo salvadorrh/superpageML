@@ -2,6 +2,9 @@ import re
 from collections import defaultdict
 import pandas as pd
 
+PAGE_SIZE = 4096    # 4KB
+NUM_PAGES = 1000    # Num pages in workload
+
 def parse_perf_data(perf_file, mmap_info_file):
     # Read mmap base address
     base_addr = None
