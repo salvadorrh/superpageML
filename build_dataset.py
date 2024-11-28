@@ -24,7 +24,7 @@ global_stats = {
     "branch_misses": 0,    
 }
 
-address_pattern = re.compile(r"address (0x[0-9a-fA-F]+)")
+address_pattern = re.compile(r"address (?:0x)?([0-9a-fA-F]+)")
 
 # Read perf output file (derived from perf.data)
 with open('perf_output.txt', 'r') as f:
