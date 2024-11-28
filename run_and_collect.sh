@@ -1,24 +1,14 @@
 #!/bin/bash
 
-# Start the eBPF data collection in the background
-sudo python3 ~/superpage_project/page_metrics_bpf.py &
-BPF_PID=$!
+# Clear any old data
+rm -f perf.data perf_output.txt mmap_info.txt
 
-# Allow some time for eBPF to initialize
-sleep 2
+# Start perf recording
+sudo perf record -e 'page-faults:u,dTLB-load-misses:u,dTLB-store-misses:u,cache-references:u,cache-misses:u' \
+     -a --call-graph dwarf python3 workload10.py
 
-# Run MCF Benchmark (using LMbench as an example)
-echo "Running LMbench lat_mem_rd..."
-/usr/lib/lmbench/bin/lat_mem_rd 128 1000 > lmbench_output.log
+# Generate the perf script output
+sudo perf script > perf_output.txt
 
-# Run GUPS Benchmark
-echo "Running GUPS..."
-~/superpage_project/gups/gups -c 1000000000 -t 4 > gups_output.log
-
-# Stop the eBPF data collection
-sudo kill $BPF_PID
-
-# Wait for eBPF script to finish saving data
-sleep 2
-
-echo "Workloads completed and data collected."
+# Run the parser
+python3 parser.py
