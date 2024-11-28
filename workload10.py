@@ -16,8 +16,12 @@ with open(filename, "r+b") as f:
     mem_map = mmap.mmap(f.fileno(), ARRAY_SIZE, access = mmap.ACCESS_WRITE)
 
     try:
+        # Access pages
         for i in range(0, NUM_PAGES, 10):
-            offset = i
+            offset = i * PAGE_SIZE
+            mem_map[offset:offset + PAGE_SIZE] = b"\x00" * PAGE_SIZE # Write to the specific are that we want
+            print(f'Accessed page {i} at offset {offset}')
+            time.sleep(0.01)
     finally:
         mem_map.close()
 
