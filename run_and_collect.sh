@@ -1,17 +1,14 @@
-#!/bin/bash
+# Give it a moment to start
+sleep 1
 
-# Clear any old data
-rm -f perf.data perf_output.txt mmap_info.txt
+# Record stats for the workload
+sudo perf stat -e page-faults,dTLB-load-misses,dTLB-store-misses,cache-references,cache-misses -p $WORKLOAD_PID -o perf_output.txt
 
-# Record with simpler output format
-sudo perf stat -x, -o perf_output.txt -e page-faults,dTLB-load-misses,dTLB-store-misses,cache-references,cache-misses -p $(pgrep -f "python3 workload10.py") &
-PERF_PID=$!
+# Wait for workload to finish
+wait $WORKLOAD_PID
 
-# Run the workload
-python3 workload10.py
-
-# Wait for perf to finish
-wait $PERF_PID
+# Fix permissions on output files
+sudo chown $USER:$USER perf_output.txt mmap_info.txt
 
 # Run the parser
 python3 parser.py
