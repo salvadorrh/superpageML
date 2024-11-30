@@ -74,8 +74,65 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
 # Initialize bpf
 b = BPF(text = bpf_program)
 
-columns = []
+columns = ['page_id', 'access_frequency', 'last_access_time_ns', 'read_count', 'write_count', 'inter_access_time_ns', 'access_type', 'page_fault']
 df = pd.DataFrame(columns=columns)
+
+last_access_dict = {}
+
+# Event handler
+def handle_event(cpu, data, size):
+    event = b["events"].event(data)
+    page_id = event.page_id
+    access_time_ns = event.access_time_ns
+    access_type = event.access_type
+    
+    # Fetch access frequency
+    freq = 0
+    try:
+        freq = b["page_access_freq"][page_id].value
+    except KeyError:
+        freq = 1
+    
+    # Fetch last access time
+    try:
+        last_time = b["page_last_access"][page_id].value
+    except KeyError:
+        last_time = access_time_ns
+    
+    # Fetch read/write counts
+    read_cnt = 0
+    write_cnt = 0
+    try:
+        read_cnt = b["page_read_count"][page_id].value
+    except KeyError:
+        read_cnt = 0
+    try:
+        write_cnt = b["page_write_count"][page_id].value
+    except KeyError:
+        write_cnt = 0
+    
+    # Calculate inter access time
+    inter_access_time_ns = 0
+    if page_id in last_access_dict:
+        inter_access_time_ns = access_time_ns - last_access_dict[page_id]
+    last_access_dict[page_id] = access_time_ns
+    
+    # Assuming every 10th page access causes a page fault
+    page_fault = 1 if (page_id % 10 == 0) else 0
+    
+    # Append to DataFrame
+    df.loc[len(df)] = [page_id, freq, last_time, read_cnt, write_cnt, inter_access_time_ns, access_type, page_fault]
+
+# Attach event handler
+b["events"].open_perf_buffer(handle_event)
+
+def poll_events():
+    while True:
+        try:
+            b.perf_buffer_poll()
+        except KeyboardInterrupt:
+            exit()
+
 
 # Start a thread to read BFS maps
 thread = threading.Thread()

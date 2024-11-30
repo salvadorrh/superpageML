@@ -16,7 +16,7 @@ def main():
 
     # Delay to have time to run the eBPF script
     print("Starting workload in 60 seconds...")
-    time.sleep(60)
+    time.sleep(10)
     
     # Create a temp file to back mmap
     filename = "temp_mmap"
