@@ -13,6 +13,10 @@ def get_mmap_address(mem_map):
 def main():
     pid = os.getpid()
     print(f'Process PID: {pid}')
+
+    # Delay to have time to run the eBPF script
+    print("Starting workload in 60 seconds...")
+    time.sleep(60)
     
     # Create a temp file to back mmap
     filename = "temp_mmap"
