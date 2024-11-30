@@ -135,4 +135,19 @@ def poll_events():
 
 
 # Start a thread to read BFS maps
-thread = threading.Thread()
+thread = threading.Thread(target=poll_events)
+thread.daemon = True
+thread.start()
+
+# Allow some time for BPF to set up
+time.sleep(10)
+
+# Now run the desired workload
+import subprocess
+print('Starting workload:')
+subprocess.run(["python3", "workload10.py"])
+
+# Allos some time for events to be processed
+time.sleep(10)
+df.to_csv('page_fault_dataset.csv', index=False)
+print("Dataset saved to 'page_fault_dataset.csv'")
