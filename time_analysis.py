@@ -24,11 +24,13 @@ BPF_PERF_OUTPUT(events);
 BPF_HASH(fault_count_window, u64, u64);  // Faults per time window
 BPF_HASH(last_fault_time, u64, u64);     // Last fault time
 BPF_HASH(process_fault_count, u32, u64); // Faults per process
+BPF_HASH(total_faults, u64, u64);        // Total fault counter
 
 int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
                             unsigned long address, unsigned int flags) {
     u64 timestamp = bpf_ktime_get_ns();
     u32 pid = bpf_get_current_pid_tgid() >> 32;
+    u64 pid64 = (u64)pid;  // Convert pid to u64
     
     // Calculate current time window (1ms windows)
     u64 window = timestamp / 1000000;
@@ -51,16 +53,28 @@ int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         process_fault_count.update(&pid, &initial);
     }
     
-    // Update last fault time
-    last_fault_time.update(&pid, &timestamp);
+    // Update last fault time using pid64
+    last_fault_time.update(&pid64, &timestamp);
+    
+    // Update total faults (for memory pressure approximation)
+    u64 zero = 0;
+    u64 *total = total_faults.lookup(&zero);
+    if (total) {
+        (*total)++;
+    } else {
+        u64 initial = 1;
+        total_faults.update(&zero, &initial);
+    }
     
     struct data_t data = {};
     data.timestamp = timestamp;
     data.page_id = address / 4096;
     data.fault_type = (vma->vm_flags & 0x2) ? 1 : 0;
     data.pid = pid;
-    // Simple memory pressure indicator (could be enhanced)
-    data.memory_pressure = process_fault_count.count();
+    
+    // Get current total faults as a simple memory pressure indicator
+    total = total_faults.lookup(&zero);
+    data.memory_pressure = total ? (*total & 0xFFFFFFFF) : 0;  // Convert to u32
     
     events.perf_submit(ctx, &data, sizeof(data));
     return 0;
