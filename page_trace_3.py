@@ -21,7 +21,7 @@ bpf_program = f"""
 #define PAGE_MASK (~(PAGE_SIZE - 1))
 
 // Struct to hold fault data
-struct data_t {
+struct data_t {{
     u64 pid;
     u64 tid;
     u64 cpu;
@@ -33,15 +33,15 @@ struct data_t {
     u64 vma_end;
     u32 vma_flags;
     u64 ip; // Instruction pointer
-};
+}};
 
 // Perf buffer for events
 BPF_PERF_OUTPUT(events);
 
 // Kprobe for handle_mm_fault (memory access)
 int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
-                            unsigned long address, unsigned int flags) {
-    struct data_t data = {};
+                            unsigned long address, unsigned int flags) {{
+    struct data_t data = {{}};
 
     // Get PID and TID
     data.pid = bpf_get_current_pid_tgid() >> 32;
@@ -75,7 +75,7 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
     events.perf_submit(ctx, &data, sizeof(data));
 
     return 0;
-}
+}}
 """
 
 # Initialize BPF
@@ -177,30 +177,4 @@ def poll_events():
 
 # Start a thread to poll events
 thread = threading.Thread(target=poll_events)
-thread.daemon = True
-thread.start()
-
-# Allow BPF to set up
-time.sleep(5)
-
-# Specify your workload script
-workload_script = "workload10.py"
-
-# Check if the workload script exists
-if not os.path.exists(workload_script):
-    print(f"Workload script '{workload_script}' not found. Please ensure it exists in the current directory.")
-    exit(1)
-
-# Run the desired workload
-print('Starting workload:')
-subprocess.run(["python3", workload_script])
-
-# Allow some time for events to be processed after workload completion
-time.sleep(5)
-
-# Convert the list of records to a DataFrame
-df = pd.DataFrame(df_records, columns=columns)
-
-# Save the collected data to a CSV file
-df.to_csv('page_fault_dataset.csv', index=False)
-print("Dataset saved to 'page_fault_dataset.csv'")
+thread.da
