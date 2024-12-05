@@ -50,7 +50,7 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         return 0;
     }
     
-    if (!(flags & FAULT_FLAG_WRITE)) {
+    if (!flags != 629) {
     return 0;
     }
 
