@@ -88,14 +88,14 @@ if len(df) > 0:
     print(f"Length of data frame: {len(df)}")
     # Add derived features
     df['time_since_last_fault'] = df['timestamp_ns'].diff()
-    # df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
+    df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
     
     # Save dataset
     df.to_csv('only_pfs.csv', index=False)
     
     print("\nPage Fault Analysis:")
     print(f"Total faults captured: {len(df)}")
-    # print(f"Number of 10th page faults: {df['is_10th_page'].sum()}")
+    print(f"Number of 10th page faults: {df['is_10th_page'].sum()}")
     print(f"Average distance between faults: {df['distance'].mean():.2f} pages")
     print(f"Average time between faults: {df['time_since_last_fault'].mean()/1e6:.2f} ms")
     
