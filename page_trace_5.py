@@ -50,6 +50,10 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         return 0;
     }
     
+    if ((flags & 0x41) != 0x41) {
+        return 0;
+    }
+
     struct fault_data_t data = {};
     
     data.page_id = address / 4096;
