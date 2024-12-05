@@ -31,6 +31,7 @@ def main():
             base_addr = get_mmap_address(mem_map)
             print(f"Starting memory operations at base address: 0x{base_addr:x}")
             
+            """
             # Write base address to file - fixed file handling
             with open("mmap_info.txt", "w") as info_file:
                 info_file.write(f"PID: {pid}\n")
@@ -40,6 +41,7 @@ def main():
                 # Flush while file is still open
                 info_file.flush()
                 os.fsync(info_file.fileno())
+            """
             
             print("Beginning page access pattern...")
             

@@ -9,7 +9,7 @@ bpf_program = """
 #include <uapi/linux/ptrace.h>
 #include <linux/mm.h>
 
-// Structure for events
+// Struct for events
 struct data_t {
     u64 page_id;
     u64 access_time_ns;
@@ -25,12 +25,12 @@ BPF_HASH(page_last_access, u64, u64);
 BPF_HASH(page_read_count, u64, u64);
 BPF_HASH(page_write_count, u64, u64);
 
-// Kprobe for handle_mm_fault (memory access)
-int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
+// Kprobe for handle_pte_fault (memory access)
+int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
                             unsigned long address, unsigned int flags) {
     u64 page_id = address / 4096; // Assuming 4KB pages
     u64 timestamp = bpf_ktime_get_ns();
-
+    
     // Update access frequency
     u64 *freq = page_access_freq.lookup(&page_id);
     if (freq) {
@@ -44,10 +44,10 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
     page_last_access.update(&page_id, &timestamp);
 
     // Update read/write counts based on flags
-    // FAULT_FLAG_WRITE is typically defined as 0x1
+    // VM_WRITE is typically defined as 0x2
     u64 *read_cnt = page_read_count.lookup(&page_id);
     u64 *write_cnt = page_write_count.lookup(&page_id);
-    if (flags & 0x1) { // FAULT_FLAG_WRITE = 0x1
+    if (vma->vm_flags & 0x2) { // VM_WRITE flag
         if (write_cnt) {
             (*write_cnt)++;
         } else {
@@ -63,8 +63,8 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         }
     }
 
-    // Determine access type
-    u64 access_type = (flags & 0x1) ? 1 : 0;
+    // Get access type based on VM_WRITE flag
+    u64 access_type = (vma->vm_flags & 0x2) ? 1 : 0;
 
     // Emit event
     struct data_t data = {};
@@ -80,7 +80,8 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
 # Initialize bpf
 b = BPF(text = bpf_program)
 
-columns = ['page_id', 'access_frequency', 'last_access_time_ns', 'read_count', 'write_count', 'inter_access_time_ns', 'access_type', 'page_fault']
+columns = ['page_id', 'access_frequency', 'last_access_time_ns', 'read_count', 'write_count', 
+          'inter_access_time_ns', 'access_type', 'page_fault']
 df = pd.DataFrame(columns=columns)
 
 last_access_dict = {}
@@ -123,7 +124,7 @@ def handle_event(cpu, data, size):
         inter_access_time_ns = access_time_ns - last_access_dict[page_id]
     last_access_dict[page_id] = access_time_ns
     
-    # Since every 10th page access causes a page fault
+    # Set page_fault based on page_id (every 10th page)
     page_fault = 1 if (page_id % 10 == 0) else 0
 
     # Append to DataFrame
@@ -138,8 +139,6 @@ def handle_event(cpu, data, size):
         page_fault
     ]
 
-
-
 # Attach event handler
 b["events"].open_perf_buffer(handle_event)
 
@@ -150,20 +149,19 @@ def poll_events():
         except KeyboardInterrupt:
             exit()
 
-
 # Start a thread to read BFS maps
 thread = threading.Thread(target=poll_events)
 thread.daemon = True
 thread.start()
 
-# Allow some time for BPF to set up
+# Let BPF to set up
 time.sleep(5)
 
 # Now run the desired workload
 print('Starting workload:')
 subprocess.run(["python3", "workload10.py"])
 
-# Allos some time for events to be processed
+# Let events be processed
 time.sleep(5)
 df.to_csv('page_fault_dataset.csv', index=False)
 print("Dataset saved to 'page_fault_dataset.csv'")
