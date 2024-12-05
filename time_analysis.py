@@ -82,9 +82,7 @@ int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
 """
 
 
-
-
-WINDOW_SIZE_MS = 100  # 100ms windows
+WINDOW_SIZE_MS = 10  # 10ms windows
 HISTORY_WINDOWS = 5   # Look at last 5 windows for prediction
 
 class WindowTracker:
@@ -93,29 +91,31 @@ class WindowTracker:
         self.current_window = 0
         self.window_features = []
         self.labels = []
+        self.lock = threading.Lock()  # Add lock for synchronization
+        self.processing_complete = False
     
     def update(self, timestamp_ns):
-        window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
-        
-        if window_id > self.current_window:
-            # Create feature vector for previous window
-            if self.current_window > 0:
-                features = self._create_features(self.current_window)
-                if features is not None:
-                    next_window_faults = self.windows[self.current_window + 1]
-                    self.window_features.append(features)
-                    self.labels.append(1 if next_window_faults > 0 else 0)
-                    print(f"Added feature for window {self.current_window} with label for window {self.current_window + 1}")
+        with self.lock:
+            window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
             
-            self.current_window = window_id
+            if window_id > self.current_window:
+                # Create feature vector for previous window
+                if self.current_window > 0:
+                    features = self._create_features(self.current_window)
+                    if features is not None:
+                        next_window_faults = self.windows[self.current_window + 1]
+                        self.window_features.append(features)
+                        self.labels.append(1 if next_window_faults > 0 else 0)
+                
+                self.current_window = window_id
     
     def add_fault(self, timestamp_ns):
-        window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
-        self.windows[window_id] += 1
+        with self.lock:
+            window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
+            self.windows[window_id] += 1
     
     def _create_features(self, window_id):
         if window_id <= HISTORY_WINDOWS:
-            print(f"Skipping features for window {window_id} - not enough history")
             return None
             
         features = {
@@ -128,24 +128,27 @@ class WindowTracker:
         }
         return features
     
+    def complete_processing(self):
+        """Mark processing as complete and handle the last window"""
+        with self.lock:
+            self.processing_complete = True
+            # Process the last window if needed
+            if self.current_window > 0:
+                features = self._create_features(self.current_window)
+                if features is not None:
+                    next_window_faults = self.windows[self.current_window + 1]
+                    self.window_features.append(features)
+                    self.labels.append(1 if next_window_faults > 0 else 0)
+    
     def get_dataset(self):
         """Get aligned features and labels"""
-        print(f"\nBefore alignment:")
-        print(f"Features: {len(self.window_features)}")
-        print(f"Labels: {len(self.labels)}")
-        
-        if len(self.window_features) > len(self.labels):
-            print(f"Trimming {len(self.window_features) - len(self.labels)} features")
-            self.window_features = self.window_features[:len(self.labels)]
-        elif len(self.labels) > len(self.window_features):
-            print(f"Trimming {len(self.labels) - len(self.window_features)} labels")
-            self.labels = self.labels[:len(self.window_features)]
-        
-        print(f"\nAfter alignment:")
-        print(f"Features: {len(self.window_features)}")
-        print(f"Labels: {len(self.labels)}")
-            
-        return self.window_features, self.labels
+        with self.lock:
+            if len(self.window_features) > len(self.labels):
+                self.window_features = self.window_features[:len(self.labels)]
+            elif len(self.labels) > len(self.window_features):
+                self.labels = self.labels[:len(self.window_features)]
+                
+            return self.window_features.copy(), self.labels.copy()  # Return copies to be thread-safe
 
 # Initialize BPF
 b = BPF(text=bpf_program)
@@ -155,10 +158,9 @@ tracker = WindowTracker()
 
 def handle_event(cpu, data, size):
     event = b["events"].event(data)
-    
-    # Update window tracker
-    tracker.update(event.timestamp)
-    tracker.add_fault(event.timestamp)
+    if not tracker.processing_complete:
+        tracker.update(event.timestamp)
+        tracker.add_fault(event.timestamp)
 
 b["events"].open_perf_buffer(handle_event)
 
@@ -167,6 +169,7 @@ def poll_events():
         try:
             b.perf_buffer_poll()
         except KeyboardInterrupt:
+            tracker.complete_processing()
             exit()
 
 # Start polling thread
@@ -180,25 +183,25 @@ time.sleep(5)
 print('Starting workload:')
 subprocess.run(["python3", "workload10.py"])
 
-time.sleep(5)
+# Make sure all processing is complete
+time.sleep(1)
+tracker.complete_processing()
 
-# Create dataset from collected windows
+print("\nCollecting dataset...")
 features, labels = tracker.get_dataset()
 
-print("\nCreating DataFrame:")
-print(f"Features length: {len(features)}")
-print(f"Labels length: {len(labels)}")
+print(f"Features collected: {len(features)}")
+print(f"Labels collected: {len(labels)}")
 
 if len(features) != len(labels):
     print("WARNING: Features and labels lengths don't match!")
-    # Make them the same length by taking the shorter length
     min_len = min(len(features), len(labels))
     features = features[:min_len]
     labels = labels[:min_len]
     print(f"Truncated both to length: {min_len}")
 
-df = pd.DataFrame(features)
 if len(features) > 0:
+    df = pd.DataFrame(features)
     df['next_window_has_fault'] = labels
     
     # Save dataset
