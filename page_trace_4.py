@@ -95,7 +95,7 @@ if len(df) > 0:
     
     print("\nPage Fault Analysis:")
     print(f"Total faults captured: {len(df)}")
-    print(f"Number of 10th page faults: {df['is_10th_page'].sum()}")
+    # print(f"Number of 10th page faults: {df['is_10th_page'].sum()}")
     print(f"Average distance between faults: {df['distance'].mean():.2f} pages")
     print(f"Average time between faults: {df['time_since_last_fault'].mean()/1e6:.2f} ms")
     
