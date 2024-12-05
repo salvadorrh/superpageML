@@ -6,7 +6,7 @@ from collections import defaultdict
 import pandas as pd
 
 # Configuration
-WINDOW_SIZE = '100ms'  # Adjust this value as needed ('100ms', '250ms', '500ms', etc.)
+WINDOW_SIZE = '250ms'  # Adjust this value as needed ('100ms', '250ms', '500ms', etc.)
 PREDICTION_HORIZON = 1  # Number of windows to look ahead for labeling
 
 # BPF program
@@ -28,7 +28,7 @@ TRACEPOINT_PROBE(mm, mm_page_fault_user) {
     data.ts = bpf_ktime_get_ns();
     data.pid = bpf_get_current_pid_tgid() >> 32;
     data.minor_faults = 1;
-    page_faults.perf_submit(ctx, &data, sizeof(data));
+    page_faults.perf_submit(args, &data, sizeof(data));
     return 0;
 }
 
@@ -37,7 +37,7 @@ TRACEPOINT_PROBE(mm, mm_page_fault) {
     data.ts = bpf_ktime_get_ns();
     data.pid = bpf_get_current_pid_tgid() >> 32;
     data.major_faults = 1;
-    page_faults.perf_submit(ctx, &data, sizeof(data));
+    page_faults.perf_submit(args, &data, sizeof(data));
     return 0;
 }
 """
@@ -107,8 +107,6 @@ windowed = windowed.iloc[:-PREDICTION_HORIZON]
 # Feature engineering (example)
 windowed['minor_faults_avg'] = windowed['minor_faults'].rolling(window=5).mean().fillna(0)
 windowed['major_faults_avg'] = windowed['major_faults'].rolling(window=5).mean().fillna(0)
-
-# Optionally, include other metrics like CPU usage, memory usage, etc.
 
 # Save dataset
 windowed.to_csv('page_fault_dataset.csv', index=True)
