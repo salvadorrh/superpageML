@@ -4,7 +4,7 @@ import time
 import ctypes
 
 PAGE_SIZE = 4096    # 4 KB
-NUM_PAGES = 1000    # Num of pages for dataset
+NUM_PAGES = 5000    # Num of pages for dataset
 ARRAY_SIZE = PAGE_SIZE * NUM_PAGES
 
 def get_mmap_address(mem_map):
@@ -46,7 +46,7 @@ def main():
             print("Beginning page access pattern...")
             
             # Access every 10th page
-            for i in range(0, NUM_PAGES, 10):
+            for i in range(0, NUM_PAGES, 5):
                 offset = i * PAGE_SIZE
                 absolute_addr = base_addr + offset
                 
