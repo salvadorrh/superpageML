@@ -156,7 +156,7 @@ subprocess.run(["python3", "workload10.py"])
 time.sleep(5)
 
 # Save raw data
-df.to_csv('page_fault_analysis.csv', index=False)
+df.to_csv('page_fault_2.csv', index=False)
 
 # Perform statistical analysis
 print("\nPage Fault Statistics:")
@@ -181,4 +181,4 @@ correlations = df.corr()
 print("\nFeature correlations:")
 print(correlations['fault_count'].sort_values(ascending=False))
 
-print("\nDataset in 'page_fault_analysis.csv'")
+print("\nDataset in 'page_fault_2.csv'")
