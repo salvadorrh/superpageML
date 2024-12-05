@@ -50,10 +50,6 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         return 0;
     }
     
-     if (flags != 0x41) {
-        return 0;
-    }
-
     struct fault_data_t data = {};
     
     data.page_id = address / 4096;
@@ -147,6 +143,8 @@ if len(df) > 0:
     print(f"\nCollected {len(df)} page faults")
     print(f"Expected around (1000 pages / 10)")
     print("\nUnique PIDs in data:")
+    print("\nUnique fault flags seen:")
+    print(df['fault_flags'].unique())
     print(df['pid'].value_counts())
     
     if len(df) > 0:
