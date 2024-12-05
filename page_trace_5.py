@@ -150,6 +150,10 @@ if len(df) > 0:
     print("\nUnique fault flags seen:")
     print(df['fault_flags'].unique())
     print(df['pid'].value_counts())
+
+    print("\nFlag combinations and their counts:")
+    flag_counts = df['fault_flags'].value_counts()
+    print(flag_counts)
     
     if len(df) > 0:
         df['time_since_last_fault'] = df['timestamp_ns'].diff()
