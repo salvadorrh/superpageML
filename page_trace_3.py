@@ -177,4 +177,30 @@ def poll_events():
 
 # Start a thread to poll events
 thread = threading.Thread(target=poll_events)
-thread.da
+thread.daemon = True
+thread.start()
+
+# Allow BPF to set up
+time.sleep(5)
+
+# Specify your workload script
+workload_script = "workload10.py"
+
+# Check if the workload script exists
+if not os.path.exists(workload_script):
+    print(f"Workload script '{workload_script}' not found. Please ensure it exists in the current directory.")
+    exit(1)
+
+# Run the desired workload
+print('Starting workload:')
+subprocess.run(["python3", workload_script])
+
+# Allow some time for events to be processed after workload completion
+time.sleep(5)
+
+# Convert the list of records to a DataFrame
+df = pd.DataFrame(df_records, columns=columns)
+
+# Save the collected data to a CSV file
+df.to_csv('page_fault_dataset.csv', index=False)
+print("Dataset saved to 'page_fault_dataset.csv'")
