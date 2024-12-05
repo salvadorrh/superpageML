@@ -105,15 +105,18 @@ class WindowTracker:
                     next_window_faults = self.windows[self.current_window + 1]
                     self.window_features.append(features)
                     self.labels.append(1 if next_window_faults > 0 else 0)
+                    print(f"Added feature for window {self.current_window} with label for window {self.current_window + 1}")
             
             self.current_window = window_id
     
     def add_fault(self, timestamp_ns):
         window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
         self.windows[window_id] += 1
+        print(f"Added fault in window {window_id}")
     
     def _create_features(self, window_id):
         if window_id <= HISTORY_WINDOWS:
+            print(f"Skipping features for window {window_id} - not enough history")
             return None
             
         features = {
@@ -128,12 +131,20 @@ class WindowTracker:
     
     def get_dataset(self):
         """Get aligned features and labels"""
+        print(f"\nBefore alignment:")
+        print(f"Features: {len(self.window_features)}")
+        print(f"Labels: {len(self.labels)}")
+        
         if len(self.window_features) > len(self.labels):
-            # Trim extra feature if necessary
+            print(f"Trimming {len(self.window_features) - len(self.labels)} features")
             self.window_features = self.window_features[:len(self.labels)]
         elif len(self.labels) > len(self.window_features):
-            # Trim extra label if necessary
+            print(f"Trimming {len(self.labels) - len(self.window_features)} labels")
             self.labels = self.labels[:len(self.window_features)]
+        
+        print(f"\nAfter alignment:")
+        print(f"Features: {len(self.window_features)}")
+        print(f"Labels: {len(self.labels)}")
             
         return self.window_features, self.labels
 
@@ -143,19 +154,12 @@ b = BPF(text=bpf_program)
 # Initialize window tracker
 tracker = WindowTracker()
 
-# Track process stats
-process_stats = defaultdict(lambda: {'fault_count': 0, 'last_fault': 0})
-
 def handle_event(cpu, data, size):
     event = b["events"].event(data)
     
     # Update window tracker
     tracker.update(event.timestamp)
     tracker.add_fault(event.timestamp)
-    
-    # Update process stats
-    process_stats[event.pid]['fault_count'] += 1
-    process_stats[event.pid]['last_fault'] = event.timestamp
 
 b["events"].open_perf_buffer(handle_event)
 
@@ -181,8 +185,21 @@ time.sleep(5)
 
 # Create dataset from collected windows
 features, labels = tracker.get_dataset()
+
+print("\nCreating DataFrame:")
+print(f"Features length: {len(features)}")
+print(f"Labels length: {len(labels)}")
+
+if len(features) != len(labels):
+    print("WARNING: Features and labels lengths don't match!")
+    # Make them the same length by taking the shorter length
+    min_len = min(len(features), len(labels))
+    features = features[:min_len]
+    labels = labels[:min_len]
+    print(f"Truncated both to length: {min_len}")
+
 df = pd.DataFrame(features)
-if len(features) > 0:  # Make sure we have data
+if len(features) > 0:
     df['next_window_has_fault'] = labels
     
     # Save dataset
