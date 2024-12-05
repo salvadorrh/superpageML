@@ -90,7 +90,7 @@ if len(df) > 0:
     df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
     
     # Save dataset
-    df.to_csv('page_fault_data.csv', index=False)
+    df.to_csv('only_pfs.csv', index=False)
     
     print("\nPage Fault Analysis:")
     print(f"Total faults captured: {len(df)}")
