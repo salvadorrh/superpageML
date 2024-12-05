@@ -85,9 +85,10 @@ time.sleep(5)
 df = pd.DataFrame(fault_data)
 
 if len(df) > 0:
+    print(f"Length of data frame: {len(df)}")
     # Add derived features
     df['time_since_last_fault'] = df['timestamp_ns'].diff()
-    df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
+    # df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
     
     # Save dataset
     df.to_csv('only_pfs.csv', index=False)
