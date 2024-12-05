@@ -81,6 +81,9 @@ int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
 }
 """
 
+
+
+
 WINDOW_SIZE_MS = 100  # 100ms windows
 HISTORY_WINDOWS = 5   # Look at last 5 windows for prediction
 
@@ -99,9 +102,9 @@ class WindowTracker:
             if self.current_window > 0:
                 features = self._create_features(self.current_window)
                 if features is not None:
+                    next_window_faults = self.windows[self.current_window + 1]
                     self.window_features.append(features)
-                    # Label is 1 if there were faults in next window
-                    self.labels.append(1 if self.windows[self.current_window + 1] > 0 else 0)
+                    self.labels.append(1 if next_window_faults > 0 else 0)
             
             self.current_window = window_id
     
@@ -112,7 +115,7 @@ class WindowTracker:
     def _create_features(self, window_id):
         if window_id <= HISTORY_WINDOWS:
             return None
-        
+            
         features = {
             'faults_current': self.windows[window_id],
             'total_faults_history': sum(self.windows[window_id - i] for i in range(1, HISTORY_WINDOWS + 1)),
@@ -122,6 +125,17 @@ class WindowTracker:
             'window_id': window_id
         }
         return features
+    
+    def get_dataset(self):
+        """Get aligned features and labels"""
+        if len(self.window_features) > len(self.labels):
+            # Trim extra feature if necessary
+            self.window_features = self.window_features[:len(self.labels)]
+        elif len(self.labels) > len(self.window_features):
+            # Trim extra label if necessary
+            self.labels = self.labels[:len(self.window_features)]
+            
+        return self.window_features, self.labels
 
 # Initialize BPF
 b = BPF(text=bpf_program)
@@ -135,9 +149,11 @@ process_stats = defaultdict(lambda: {'fault_count': 0, 'last_fault': 0})
 def handle_event(cpu, data, size):
     event = b["events"].event(data)
     
+    # Update window tracker
     tracker.update(event.timestamp)
     tracker.add_fault(event.timestamp)
     
+    # Update process stats
     process_stats[event.pid]['fault_count'] += 1
     process_stats[event.pid]['last_fault'] = event.timestamp
 
@@ -163,22 +179,28 @@ subprocess.run(["python3", "workload10.py"])
 
 time.sleep(5)
 
-df = pd.DataFrame(tracker.window_features)
-df['next_window_has_fault'] = tracker.labels
-
-
-df.to_csv('time_window_fault_data.csv', index=False)
-
-print("\nTime Window Analysis:")
-print(f"Total windows analyzed: {len(df)}")
-print(f"Windows with faults: {len(df[df['faults_current'] > 0])}")
-print(f"Prediction windows with faults: {sum(tracker.labels)}")
-
-print("\nFeature Statistics:")
-print(df.describe())
-
-print("\nCorrelations with fault occurrence:")
-correlations = df.corr()['next_window_has_fault'].sort_values(ascending=False)
-print(correlations)
-
-print("\nSaved to 'time_window_fault_data.csv'")
+# Create dataset from collected windows
+features, labels = tracker.get_dataset()
+df = pd.DataFrame(features)
+if len(features) > 0:  # Make sure we have data
+    df['next_window_has_fault'] = labels
+    
+    # Save dataset
+    df.to_csv('time_window_fault_data.csv', index=False)
+    
+    # Print analysis
+    print("\nTime Window Analysis:")
+    print(f"Total windows analyzed: {len(df)}")
+    print(f"Windows with faults: {len(df[df['faults_current'] > 0])}")
+    print(f"Prediction windows with faults: {sum(labels)}")
+    
+    print("\nFeature Statistics:")
+    print(df.describe())
+    
+    print("\nCorrelations with fault occurrence:")
+    correlations = df.corr()['next_window_has_fault'].sort_values(ascending=False)
+    print(correlations)
+    
+    print("\nDataset saved to 'time_window_fault_data.csv'")
+else:
+    print("No windows collected. Try adjusting the WINDOW_SIZE_MS or running the workload longer.")
