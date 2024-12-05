@@ -112,6 +112,7 @@ class WindowTracker:
     def add_fault(self, timestamp_ns):
         window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
         self.windows[window_id] += 1
+        print(f"Added fault in window {window_id}")
     
     def _create_features(self, window_id):
         if window_id <= HISTORY_WINDOWS:
