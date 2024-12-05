@@ -199,7 +199,16 @@ subprocess.run(["python3", workload_script])
 time.sleep(5)
 
 # Convert the list of records to a DataFrame
-df = pd.DataFrame(df_records, columns=columns)
+try:
+    df = pd.DataFrame(df_records, columns=columns)
+except ValueError as ve:
+    print(f"ValueError while creating DataFrame: {ve}")
+    print("Attempting to find mismatched records...")
+    # Identify records with missing or extra fields
+    for idx, record in enumerate(df_records):
+        if len(record) != len(columns):
+            print(f"Record {idx} has {len(record)} fields: {record}")
+    exit(1)
 
 # Save the collected data to a CSV file
 df.to_csv('page_fault_dataset.csv', index=False)
