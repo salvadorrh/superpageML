@@ -82,7 +82,7 @@ int kprobe__handle_pte_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
 """
 
 
-WINDOW_SIZE_MS = 10  # 10ms windows
+WINDOW_SIZE_MS = 1  # 10ms windows
 HISTORY_WINDOWS = 5   # Look at last 5 windows for prediction
 
 class WindowTracker:
@@ -96,7 +96,7 @@ class WindowTracker:
     
     def update(self, timestamp_ns):
         with self.lock:
-            window_id = timestamp_ns // (WINDOW_SIZE_MS * 10000)
+            window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
             
             if window_id > self.current_window:
                 # Create feature vector for previous window
