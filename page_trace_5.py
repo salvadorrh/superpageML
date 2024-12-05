@@ -126,7 +126,7 @@ print("Setting up BPF...")
 time.sleep(5)
 
 print('Starting workload...')
-workload_process = subprocess.Popen(["python3", "workload10.py"])
+workload_process = subprocess.Popen(["python3", "workload5.py"]) # changed
 get_workload_pid(workload_process)
 
 # Update the PID in kernel space
