@@ -96,7 +96,7 @@ class WindowTracker:
     
     def update(self, timestamp_ns):
         with self.lock:
-            window_id = timestamp_ns // (WINDOW_SIZE_MS * 1000000)
+            window_id = timestamp_ns // (WINDOW_SIZE_MS * 10000)
             
             if window_id > self.current_window:
                 # Create feature vector for previous window
