@@ -34,7 +34,7 @@ def main():
             
             # Access every 10th page
             for i in range(0, NUM_PAGES):
-                if i % 5 == 0 or i % 7 == 0:
+                if i % 5 == 0:
                     offset = i * PAGE_SIZE
                     absolute_addr = base_addr + offset
                     
@@ -42,6 +42,17 @@ def main():
                     mem_map[offset:offset + PAGE_SIZE] = b"\xFF" * PAGE_SIZE
                     print(f'Accessed page {i} at address 0x{absolute_addr:x}')
                     time.sleep(0.01)
+                if i % 4 == 0:
+                    offset = i * PAGE_SIZE
+                    absolute_addr = base_addr + offset
+                    
+                    # Write to page to create fault
+                    mem_map[offset:offset + PAGE_SIZE] = b"\xFF" * PAGE_SIZE
+                    print(f'Accessed page {i} at address 0x{absolute_addr:x}')
+                    time.sleep(0.03)
+                if i % 7 == 0:
+                    time.sleep(0.02)
+
         finally:
             mem_map.close()
 
