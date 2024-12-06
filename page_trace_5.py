@@ -50,6 +50,7 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         return 0;
     }
     
+    // Only specific user flags
     if (flags != 629) {
     return 0;
     }
@@ -145,11 +146,8 @@ df = pd.DataFrame(fault_data)
 
 if len(df) > 0:
     print(f"\nCollected {len(df)} page faults")
-    print(f"Expected around (1000 pages / 10)")
-    print("\nUnique PIDs in data:")
     print("\nUnique fault flags seen:")
     print(df['fault_flags'].unique())
-    print(df['pid'].value_counts())
 
     print("\nFlag combinations and their counts:")
     flag_counts = df['fault_flags'].value_counts()
@@ -157,7 +155,6 @@ if len(df) > 0:
     
     if len(df) > 0:
         df['time_since_last_fault'] = df['timestamp_ns'].diff()
-        df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
         df['offset_in_vma'] = df['page_id']*4096 - df['vma_start']
         df['vma_size'] = df['vma_end'] - df['vma_start']
         df['relative_position'] = df['offset_in_vma'] / df['vma_size']
