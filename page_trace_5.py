@@ -135,7 +135,7 @@ time.sleep(5)
 
 print('Starting workload...')
 workload_script = sys.argv[1]
-workload_process = subprocess.Popen(["sudo", "python3", workload_script])
+workload_process = subprocess.Popen(["sudo", "python3", 'workload5.py'])
 get_workload_pid(workload_process)
 
 # Update the PID in kernel space
