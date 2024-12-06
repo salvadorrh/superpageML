@@ -5,13 +5,6 @@ import threading
 import subprocess
 import ctypes
 import os
-import sys
-
-# Get workload script
-if len(sys.argv) < 2:
-    print("Prvide a workload script name")
-    print("Usage: sudo python3 page_trace_5.py workload.py")
-    sys.exit(1)
 
 # Store the workload PID globally
 WORKLOAD_PID = 0
@@ -57,7 +50,6 @@ int kprobe__handle_mm_fault(struct pt_regs *ctx, struct vm_area_struct *vma,
         return 0;
     }
     
-    // Get specific faults!
     if (flags != 629) {
     return 0;
     }
@@ -134,8 +126,7 @@ print("Setting up BPF...")
 time.sleep(5)
 
 print('Starting workload...')
-workload_script = sys.argv[1]
-workload_process = subprocess.Popen(["sudo", "python3", 'workload5.py'])
+workload_process = subprocess.Popen(["python3", "workload5.py"]) # changed
 get_workload_pid(workload_process)
 
 # Update the PID in kernel space
@@ -147,12 +138,14 @@ print(f"Tracking page faults for PID: {WORKLOAD_PID}")
 
 # Wait for workload to complete
 workload_process.wait()
-time.sleep(1)
+time.sleep(1)  # Give time for last events
 
+# Create DataFrame
 df = pd.DataFrame(fault_data)
 
 if len(df) > 0:
     print(f"\nCollected {len(df)} page faults")
+    print(f"Expected around (1000 pages / 10)")
     print("\nUnique PIDs in data:")
     print("\nUnique fault flags seen:")
     print(df['fault_flags'].unique())
@@ -161,15 +154,17 @@ if len(df) > 0:
     print("\nFlag combinations and their counts:")
     flag_counts = df['fault_flags'].value_counts()
     print(flag_counts)
-
-    df['time_since_last_fault'] = df['timestamp_ns'].diff()
-    df['offset_in_vma'] = df['page_id']*4096 - df['vma_start']
-    df['vma_size'] = df['vma_end'] - df['vma_start']
-    df['relative_position'] = df['offset_in_vma'] / df['vma_size']
-    df['sequential_access'] = (df['distance'] == 1).astype(int)
     
-    df.to_csv('only_pfs.csv', index=False)
-    print("\nFeature Statistics:")
-    print(df.describe())
+    if len(df) > 0:
+        df['time_since_last_fault'] = df['timestamp_ns'].diff()
+        df['is_10th_page'] = (df['page_id'] % 10 == 0).astype(int)
+        df['offset_in_vma'] = df['page_id']*4096 - df['vma_start']
+        df['vma_size'] = df['vma_end'] - df['vma_start']
+        df['relative_position'] = df['offset_in_vma'] / df['vma_size']
+        df['sequential_access'] = (df['distance'] == 1).astype(int)
+        
+        df.to_csv('only_pfs.csv', index=False)
+        print("\nFeature Statistics:")
+        print(df.describe())
 else:
     print("No faults collected")
