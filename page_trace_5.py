@@ -127,7 +127,7 @@ print("Setting up BPF...")
 time.sleep(5)
 
 print('Starting workload...')
-workload_process = subprocess.Popen(["python3", "workload5.py"]) # changed
+workload_process = subprocess.Popen(["python3", "workload7.py"]) # changed
 get_workload_pid(workload_process)
 
 # Update the PID in kernel space
@@ -160,7 +160,7 @@ if len(df) > 0:
         df['relative_position'] = df['offset_in_vma'] / df['vma_size']
         df['sequential_access'] = (df['distance'] == 1).astype(int)
         
-        df.to_csv('only_pfs.csv', index=False)
+        df.to_csv('only_pfs2.csv', index=False)
         print("\nFeature Statistics:")
         print(df.describe())
 else:
