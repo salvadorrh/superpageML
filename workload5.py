@@ -45,7 +45,7 @@ def main():
             
             print("Beginning page access pattern...")
             
-            # Access every 10th page
+            # Access every 5th page
             for i in range(0, NUM_PAGES, 5):
                 offset = i * PAGE_SIZE
                 absolute_addr = base_addr + offset

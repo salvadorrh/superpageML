@@ -18,7 +18,6 @@ bpf_program = """
 #include <uapi/linux/ptrace.h>
 #include <linux/mm.h>
 
-// Define a kernel space variable to hold our PID
 BPF_HASH(target_pid, u32, u32, 1);
 
 struct fault_data_t {
