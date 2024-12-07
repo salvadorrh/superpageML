@@ -159,7 +159,7 @@ if len(df) > 0:
         df['relative_position'] = df['offset_in_vma'] / df['vma_size']
         df['sequential_access'] = (df['distance'] == 1).astype(int)
         
-        df.to_csv('only_pfs2.csv', index=False)
+        df.to_csv('only_pfs3.csv', index=False)
         print("\nFeature Statistics:")
         print(df.describe())
 else:
